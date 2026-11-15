@@ -33,6 +33,8 @@ namespace LeanDesignTools
         private AccentRadioButton _fitShapeMode;
         private AccentRadioButton _shrinkMode;
         private AccentCheckBox _wordWrap;
+        private int _selectedPage;
+        private int _navWheelDelta;
 
         public DesignPane()
         {
@@ -178,6 +180,8 @@ namespace LeanDesignTools
             var index = _pages.Count;
             var button = new NavButton { Text = title, Dock = DockStyle.Fill, Margin = new Padding(0), AccessibleName = title + "页签" };
             button.Click += (s, e) => SelectPage(index);
+            button.MouseWheel += NavigatePageByWheel;
+            _tips.SetToolTip(button, title + "工具；单击或滚动鼠标滚轮切换页签");
             _nav.Controls.Add(button, index, 0);
             _pages.Add(page);
             _contents.Add(content);
@@ -187,6 +191,7 @@ namespace LeanDesignTools
 
         private void SelectPage(int index)
         {
+            _selectedPage = index;
             for (var i = 0; i < _pages.Count; i++)
             {
                 _pages[i].Visible = i == index;
@@ -194,6 +199,17 @@ namespace LeanDesignTools
             }
             _pages[index].BringToFront();
             _contents[index].AutoScrollPosition = Point.Empty;
+        }
+
+        private void NavigatePageByWheel(object sender, MouseEventArgs e)
+        {
+            var handled = e as HandledMouseEventArgs;
+            if (handled != null) handled.Handled = true;
+            _navWheelDelta += e.Delta;
+            if (Math.Abs(_navWheelDelta) < SystemInformation.MouseWheelScrollDelta) return;
+            var target = _selectedPage + (_navWheelDelta > 0 ? -1 : 1);
+            _navWheelDelta = 0;
+            SelectPage(Math.Max(0, Math.Min(_pages.Count - 1, target)));
         }
 
         private ToolButton Tool(string tip, IconKind icon, Action action, int minimumSelection = 1)
