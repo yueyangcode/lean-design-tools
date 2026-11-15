@@ -181,7 +181,6 @@ namespace LeanDesignTools
             var button = new NavButton { Text = title, Dock = DockStyle.Fill, Margin = new Padding(0), AccessibleName = title + "页签" };
             button.Click += (s, e) => SelectPage(index);
             button.MouseWheel += NavigatePageByWheel;
-            _tips.SetToolTip(button, title + "工具；单击或滚动鼠标滚轮切换页签");
             _nav.Controls.Add(button, index, 0);
             _pages.Add(page);
             _contents.Add(content);
