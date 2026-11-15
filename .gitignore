@@ -1,0 +1,11 @@
+bin/
+obj/
+*.user
+*.suo
+*.reg
+preview*.png
+islide-*.png
+/*.png
+/fusion-log/
+.vs/
+dist/
