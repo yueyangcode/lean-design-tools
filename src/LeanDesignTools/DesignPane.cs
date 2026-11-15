@@ -106,15 +106,17 @@ namespace LeanDesignTools
                 Tool("幻灯片居中", IconKind.SlideCenter, () => ShapeOperations.Dock(0, 0)));
 
             BeginPage("形状");
-            AddSection("选择",
+            AddSection("选择", 4,
                 Tool("全选形状", IconKind.SelectAll, ShapeOperations.SelectAll, 0),
                 Tool("组合", IconKind.Group, ShapeOperations.Group, 2),
                 Tool("取消组合", IconKind.Ungroup, ShapeOperations.Ungroup),
+                Tool("选择窗格", IconKind.Eye, () => ShapeOperations.ExecuteMso("SelectionPane", 0), 0));
+
+            AddSection("图层", 4,
                 Tool("置于顶层", IconKind.BringFront, () => ShapeOperations.ZOrder(0)),
                 Tool("上移一层", IconKind.Forward, () => ShapeOperations.ZOrder(2)),
                 Tool("下移一层", IconKind.Backward, () => ShapeOperations.ZOrder(3)),
-                Tool("置于底层", IconKind.SendBack, () => ShapeOperations.ZOrder(1)),
-                Tool("选择窗格", IconKind.Eye, () => ShapeOperations.ExecuteMso("SelectionPane", 0), 0));
+                Tool("置于底层", IconKind.SendBack, () => ShapeOperations.ZOrder(1)));
 
             AddSection("矢量",
                 Tool("联合", IconKind.Union, () => ShapeOperations.ExecuteMso("ShapesUnion"), 2),
