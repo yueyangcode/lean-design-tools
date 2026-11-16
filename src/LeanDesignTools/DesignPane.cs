@@ -81,7 +81,7 @@ namespace LeanDesignTools
         private void BuildUi()
         {
             BeginPage("布局");
-            AddSection("对齐",
+            AddSection("对齐", "首选为基准",
                 Tool("左对齐", IconKind.AlignLeft, () => ShapeOperations.Align(AlignMode.Left), 2),
                 Tool("水平居中", IconKind.AlignCenter, () => ShapeOperations.Align(AlignMode.Center), 2),
                 Tool("右对齐", IconKind.AlignRight, () => ShapeOperations.Align(AlignMode.Right), 2),
@@ -127,16 +127,6 @@ namespace LeanDesignTools
                 Tool("相交", IconKind.Intersect, () => ShapeOperations.ExecuteMso("ShapesIntersect"), 2),
                 Tool("剪除", IconKind.Subtract, () => ShapeOperations.ExecuteMso("ShapesSubtract"), 2));
 
-            AddSection("剪贴板", 2,
-                Tool("复制位置（可跨幻灯片）", IconKind.CopyPosition, () => ShapeOperations.CopyGeometry(true, false, false)),
-                Tool("粘贴位置（可跨幻灯片）", IconKind.PastePosition, () => ShapeOperations.PasteGeometry(true, false, false)),
-                Tool("复制宽度（可跨幻灯片）", IconKind.CopyWidth, () => ShapeOperations.CopyGeometry(false, true, false)),
-                Tool("粘贴宽度（可跨幻灯片）", IconKind.PasteWidth, () => ShapeOperations.PasteGeometry(false, true, false)),
-                Tool("复制高度（可跨幻灯片）", IconKind.CopyHeight, () => ShapeOperations.CopyGeometry(false, false, true)),
-                Tool("粘贴高度（可跨幻灯片）", IconKind.PasteHeight, () => ShapeOperations.PasteGeometry(false, false, true)),
-                Tool("复制大小（可跨幻灯片）", IconKind.CopySize, () => ShapeOperations.CopyGeometry(false, true, true)),
-                Tool("粘贴大小（可跨幻灯片）", IconKind.PasteSize, () => ShapeOperations.PasteGeometry(false, true, true)));
-
             AddSection("吸附", 2,
                 Tool("向左吸附", IconKind.SnapLeft, () => ShapeOperations.Snap(SnapDirection.Left)),
                 Tool("向右吸附", IconKind.SnapRight, () => ShapeOperations.Snap(SnapDirection.Right)),
@@ -157,6 +147,15 @@ namespace LeanDesignTools
                 Tool("段落合并", IconKind.CombineLine, () => ShapeOperations.CombineText(true), 2));
 
             AddObjectSizeSection();
+            AddSection("格式刷", 4,
+                Tool("吸取基准样式", IconKind.StyleCapture, ShapeOperations.CaptureStyle),
+                Tool("同宽：多选以首选为基准，单选使用已吸取基准", IconKind.StyleWidth, () => ShapeOperations.ApplyStyle(StylePart.Width)),
+                Tool("同高：多选以首选为基准，单选使用已吸取基准", IconKind.StyleHeight, () => ShapeOperations.ApplyStyle(StylePart.Height)),
+                Tool("同位置：多选以首选为基准，单选使用已吸取基准", IconKind.StylePosition, () => ShapeOperations.ApplyStyle(StylePart.Position)),
+                Tool("仅刷圆角", IconKind.StyleCorner, () => ShapeOperations.ApplyStyle(StylePart.Corner)),
+                Tool("仅刷字体", IconKind.StyleFont, () => ShapeOperations.ApplyStyle(StylePart.Font)),
+                Tool("仅刷填充", IconKind.StyleFill, () => ShapeOperations.ApplyStyle(StylePart.Fill)),
+                Tool("仅刷边框", IconKind.StyleLine, () => ShapeOperations.ApplyStyle(StylePart.Line)));
             AddTextBoxSection();
             AddMarginSection();
         }
@@ -229,15 +228,25 @@ namespace LeanDesignTools
 
         private void AddSection(string title, params ToolButton[] buttons)
         {
-            AddSection(title, 3, buttons);
+            AddSection(title, 3, title + "工具", buttons);
+        }
+
+        private void AddSection(string title, string tip, params ToolButton[] buttons)
+        {
+            AddSection(title, 3, tip, buttons);
         }
 
         private void AddSection(string title, int columns, params ToolButton[] buttons)
         {
+            AddSection(title, columns, title + "工具", buttons);
+        }
+
+        private void AddSection(string title, int columns, string tip, params ToolButton[] buttons)
+        {
             var rows = (buttons.Length + columns - 1) / columns;
             Panel header;
             Panel body;
-            CreateSection(title, rows * 29 + 8, title + "工具", out header, out body);
+            CreateSection(title, rows * 29 + 8, tip, out header, out body);
             var grid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,

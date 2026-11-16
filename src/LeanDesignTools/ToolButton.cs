@@ -11,7 +11,7 @@ namespace LeanDesignTools
         DockLeft, DockCenterH, DockRight, DockTop, DockCenterV, DockBottom, SlideCenter,
         SelectAll, Group, Ungroup, BringFront, Forward, Backward, SendBack, Eye,
         Union, Combine, Fragment, Intersect, Subtract,
-        CopyPosition, PastePosition, CopyWidth, PasteWidth, CopyHeight, PasteHeight, CopySize, PasteSize,
+        StyleCapture, StyleWidth, StyleHeight, StylePosition, StyleCorner, StyleFont, StyleFill, StyleLine,
         SnapLeft, SnapRight, SnapUp, SnapDown,
         RotateLeft, RotateRight, FlipH, FlipV,
         SplitParagraph, CombineParagraph, SplitLine, CombineLine, ClearText, ClearMargins, ResetMargins
@@ -93,14 +93,14 @@ namespace LeanDesignTools
                 case IconKind.Fragment: DrawVector(g, p, b, r, 2); break;
                 case IconKind.Intersect: DrawVector(g, p, b, r, 3); break;
                 case IconKind.Subtract: DrawVector(g, p, b, r, 4); break;
-                case IconKind.CopyPosition: DrawTransfer(g, p, r, 0, false); break;
-                case IconKind.PastePosition: DrawTransfer(g, p, r, 0, true); break;
-                case IconKind.CopyWidth: DrawTransfer(g, p, r, 1, false); break;
-                case IconKind.PasteWidth: DrawTransfer(g, p, r, 1, true); break;
-                case IconKind.CopyHeight: DrawTransfer(g, p, r, 2, false); break;
-                case IconKind.PasteHeight: DrawTransfer(g, p, r, 2, true); break;
-                case IconKind.CopySize: DrawTransfer(g, p, r, 3, false); break;
-                case IconKind.PasteSize: DrawTransfer(g, p, r, 3, true); break;
+                case IconKind.StyleCapture: DrawStyleCapture(g, p, r); break;
+                case IconKind.StyleWidth: DrawStyleDimension(g, p, r, true); break;
+                case IconKind.StyleHeight: DrawStyleDimension(g, p, r, false); break;
+                case IconKind.StylePosition: DrawStylePosition(g, p, r); break;
+                case IconKind.StyleCorner: DrawStyleCorner(g, p, r); break;
+                case IconKind.StyleFont: DrawStyleFont(g, p, r); break;
+                case IconKind.StyleFill: DrawStyleFill(g, p, b, r); break;
+                case IconKind.StyleLine: DrawStyleLine(g, p, r); break;
                 case IconKind.SnapLeft: DrawSnap(g, p, r, 0); break;
                 case IconKind.SnapRight: DrawSnap(g, p, r, 1); break;
                 case IconKind.SnapUp: DrawSnap(g, p, r, 2); break;
@@ -267,43 +267,61 @@ namespace LeanDesignTools
             if (mode == 2) { g.DrawLine(p, r.Left + 8, r.Top + 1, r.Left + 8, r.Bottom - 1); g.DrawLine(p, r.Left + 1, r.Top + 8, r.Right - 1, r.Top + 8); }
         }
 
-        private static void DrawTransfer(Graphics g, Pen p, Rectangle r, int part, bool paste)
+        private static void DrawStyleCapture(Graphics g, Pen p, Rectangle r)
         {
-            g.DrawRectangle(p, r.Left + 5, r.Top + 2, 8, 10);
-            var arrowY = r.Bottom - 1;
-            if (paste)
+            g.DrawLine(p, r.Left + 3, r.Bottom - 2, r.Right - 4, r.Top + 1);
+            g.DrawLine(p, r.Left + 1, r.Bottom - 4, r.Left + 4, r.Bottom - 1);
+            g.DrawRectangle(p, r.Right - 6, r.Top + 1, 5, 4);
+        }
+
+        private static void DrawStyleDimension(Graphics g, Pen p, Rectangle r, bool width)
+        {
+            g.DrawRectangle(p, r.Left + 3, r.Top + 3, 11, 9);
+            if (width) DrawDoubleArrowH(g, p, r.Left + 1, r.Right - 1, r.Bottom - 1);
+            else DrawDoubleArrowV(g, p, r.Right - 1, r.Top + 1, r.Bottom - 1);
+        }
+
+        private static void DrawStylePosition(Graphics g, Pen p, Rectangle r)
+        {
+            g.DrawRectangle(p, r.Left + 6, r.Top + 4, 8, 8);
+            g.DrawLine(p, r.Left + 1, r.Top + 2, r.Left + 7, r.Top + 2);
+            g.DrawLine(p, r.Left + 1, r.Top + 2, r.Left + 1, r.Top + 8);
+            g.DrawLine(p, r.Left + 1, r.Top + 2, r.Left + 4, r.Top + 5);
+        }
+
+        private static void DrawStyleCorner(Graphics g, Pen p, Rectangle r)
+        {
+            using (var path = new GraphicsPath())
             {
-                g.DrawLine(p, r.Left + 1, arrowY, r.Left + 7, arrowY);
-                g.DrawLine(p, r.Left + 5, arrowY - 2, r.Left + 7, arrowY);
+                path.AddArc(r.Left + 2, r.Top + 2, 8, 8, 180, 90);
+                path.AddLine(r.Left + 6, r.Top + 2, r.Right - 2, r.Top + 2);
+                path.AddLine(r.Right - 2, r.Top + 2, r.Right - 2, r.Bottom - 2);
+                path.AddLine(r.Right - 2, r.Bottom - 2, r.Left + 2, r.Bottom - 2);
+                path.CloseFigure();
+                g.DrawPath(p, path);
             }
-            else
-            {
-                g.DrawLine(p, r.Right - 7, arrowY, r.Right - 1, arrowY);
-                g.DrawLine(p, r.Right - 3, arrowY - 2, r.Right - 1, arrowY);
-            }
-            if (part == 0)
-            {
-                g.DrawLine(p, r.Left + 7, r.Top + 7, r.Left + 11, r.Top + 7);
-                g.DrawLine(p, r.Left + 9, r.Top + 5, r.Left + 9, r.Top + 9);
-            }
-            else if (part == 1)
-            {
-                g.DrawLine(p, r.Left + 6, r.Top + 7, r.Left + 12, r.Top + 7);
-                g.DrawLine(p, r.Left + 6, r.Top + 5, r.Left + 6, r.Top + 9);
-                g.DrawLine(p, r.Left + 12, r.Top + 5, r.Left + 12, r.Top + 9);
-            }
-            else if (part == 2)
-            {
-                g.DrawLine(p, r.Left + 9, r.Top + 3, r.Left + 9, r.Top + 11);
-                g.DrawLine(p, r.Left + 7, r.Top + 3, r.Left + 11, r.Top + 3);
-                g.DrawLine(p, r.Left + 7, r.Top + 11, r.Left + 11, r.Top + 11);
-            }
-            else
-            {
-                g.DrawLine(p, r.Left + 6, r.Top + 10, r.Left + 12, r.Top + 4);
-                g.DrawLine(p, r.Left + 9, r.Top + 4, r.Left + 12, r.Top + 4);
-                g.DrawLine(p, r.Left + 12, r.Top + 4, r.Left + 12, r.Top + 7);
-            }
+        }
+
+        private static void DrawStyleFont(Graphics g, Pen p, Rectangle r)
+        {
+            using (var font = new Font("Segoe UI", 9f, FontStyle.Bold))
+            using (var brush = new SolidBrush(p.Color))
+                g.DrawString("A", font, brush, r.Left + 1, r.Top - 2);
+            g.DrawLine(p, r.Left + 1, r.Bottom - 1, r.Right - 1, r.Bottom - 1);
+        }
+
+        private static void DrawStyleFill(Graphics g, Pen p, Brush b, Rectangle r)
+        {
+            g.DrawRectangle(p, r.Left + 2, r.Top + 2, 12, 10);
+            g.FillRectangle(b, r.Left + 3, r.Top + 8, 11, 4);
+            g.DrawLine(p, r.Left + 2, r.Top + 8, r.Right - 3, r.Top + 8);
+        }
+
+        private static void DrawStyleLine(Graphics g, Pen p, Rectangle r)
+        {
+            g.DrawRectangle(p, r.Left + 2, r.Top + 2, 12, 10);
+            using (var thick = new Pen(p.Color, 2f))
+                g.DrawLine(thick, r.Left + 2, r.Bottom - 2, r.Right - 3, r.Bottom - 2);
         }
 
         private static void DrawRotate(Graphics g, Pen p, Rectangle r, bool right)

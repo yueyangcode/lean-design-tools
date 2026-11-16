@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Extensibility;
+using Microsoft.Win32;
 using Office = Microsoft.Office.Core;
 
 namespace LeanDesignTools
@@ -14,6 +15,7 @@ namespace LeanDesignTools
         private Office.CustomTaskPane _taskPane;
         private Office.ICTPFactory _ctpFactory;
         private Office.IRibbonUI _ribbon;
+        private const string SettingsPath = @"Software\LeanDesignTools";
 
         public void OnConnection(object application, ext_ConnectMode connectMode, object addInInst, ref Array custom)
         {
@@ -23,6 +25,11 @@ namespace LeanDesignTools
         public void CTPFactoryAvailable(Office.ICTPFactory ctpFactoryInst)
         {
             _ctpFactory = ctpFactoryInst;
+            if (ReadPaneVisible())
+            {
+                try { SetPaneVisible(true); }
+                catch (Exception ex) { DesignPane.ShowError("创建设计工具窗格失败", ex); }
+            }
         }
 
         public string GetCustomUI(string ribbonId)
@@ -43,15 +50,8 @@ namespace LeanDesignTools
         {
             try
             {
-                if (_taskPane == null && pressed)
-                {
-                    if (_ctpFactory == null) throw new InvalidOperationException("PowerPoint 尚未提供任务窗格服务。");
-                    // Keep the visible title while avoiding a task-pane identity collision with iSlide.
-                    _taskPane = _ctpFactory.CreateCTP("LeanDesignTools.Pane", "设计工具\u200B", Type.Missing);
-                    _taskPane.DockPosition = Office.MsoCTPDockPosition.msoCTPDockPositionRight;
-                    _taskPane.Width = 205;
-                }
-                if (_taskPane != null) _taskPane.Visible = pressed;
+                SetPaneVisible(pressed);
+                SavePaneVisible(pressed);
             }
             catch (Exception ex) { DesignPane.ShowError("创建设计工具窗格失败", ex); }
         }
@@ -64,6 +64,7 @@ namespace LeanDesignTools
 
         public void OnDisconnection(ext_DisconnectMode removeMode, ref Array custom)
         {
+            try { if (_taskPane != null) SavePaneVisible(_taskPane.Visible); } catch { }
             _taskPane = null;
             _ctpFactory = null;
             _ribbon = null;
@@ -73,5 +74,39 @@ namespace LeanDesignTools
         public void OnAddInsUpdate(ref Array custom) { }
         public void OnStartupComplete(ref Array custom) { }
         public void OnBeginShutdown(ref Array custom) { }
+
+        private void SetPaneVisible(bool visible)
+        {
+            if (_taskPane == null && visible)
+            {
+                if (_ctpFactory == null) throw new InvalidOperationException("PowerPoint 尚未提供任务窗格服务。");
+                // Keep the visible title while avoiding a task-pane identity collision with iSlide.
+                _taskPane = _ctpFactory.CreateCTP("LeanDesignTools.Pane", "设计工具\u200B", Type.Missing);
+                _taskPane.DockPosition = Office.MsoCTPDockPosition.msoCTPDockPositionRight;
+                _taskPane.Width = 205;
+            }
+            if (_taskPane != null) _taskPane.Visible = visible;
+            _ribbon?.InvalidateControl("LeanDesignToolsToggle");
+        }
+
+        private static bool ReadPaneVisible()
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.OpenSubKey(SettingsPath))
+                    return key?.GetValue("PaneVisible") is int value ? value != 0 : true;
+            }
+            catch { return true; }
+        }
+
+        private static void SavePaneVisible(bool visible)
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.CreateSubKey(SettingsPath))
+                    key?.SetValue("PaneVisible", visible ? 1 : 0, RegistryValueKind.DWord);
+            }
+            catch { }
+        }
     }
 }

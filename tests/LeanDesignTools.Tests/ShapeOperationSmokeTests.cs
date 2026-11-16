@@ -10,7 +10,7 @@ internal static class ShapeOperationSmokeTests
     {
         TestAlignmentAndDistribution();
         TestSizeDockRotateAndOrdering();
-        TestSelectionVectorAndClipboard();
+        TestSelectionVectorAndStyleBrush();
         TestSnapTextAndMargins();
         TestSplitAndCombine();
         Console.WriteLine("Shape operation smoke tests passed.");
@@ -75,7 +75,7 @@ internal static class ShapeOperationSmokeTests
         f.App.Select(f.A); var ungroupedRange = f.App.Selection.ShapeRange; ShapeOperations.Ungroup(); True(ungroupedRange.UngroupCalled, "ungroup");
     }
 
-    private static void TestSelectionVectorAndClipboard()
+    private static void TestSelectionVectorAndStyleBrush()
     {
         var f = NewFixture();
         ShapeOperations.SelectAll(); True(f.App.Slide.Shapes.SelectedAll, "select all");
@@ -85,14 +85,32 @@ internal static class ShapeOperationSmokeTests
             True(f.App.CommandBars.Executed.Contains(id), "ExecuteMso " + id);
         }
 
-        f.App.Select(f.A); ShapeOperations.CopyGeometry(true, false, false);
-        ShapeOperations.CopyGeometry(false, true, false);
-        ShapeOperations.CopyGeometry(false, false, true);
-        f.App.Select(f.B); ShapeOperations.PasteGeometry(true, false, false); Equal(f.B.Left, 10, "paste position left"); Equal(f.B.Top, 10, "paste position top");
-        f.B.Width = 5; f.B.Height = 6; ShapeOperations.PasteGeometry(false, true, false); Equal(f.B.Width, 30, "paste width"); Equal(f.B.Height, 6, "paste width keeps height");
-        ShapeOperations.PasteGeometry(false, false, true); Equal(f.B.Width, 30, "paste height keeps width"); Equal(f.B.Height, 20, "paste height");
-        f.B.Left = 70; f.B.Top = 70; f.B.Width = 5; f.B.Height = 5; ShapeOperations.PasteGeometry(true, true, true);
-        Equal(f.B.Left, 10, "paste all left"); Equal(f.B.Top, 10, "paste all top"); Equal(f.B.Width, 30, "paste all width"); Equal(f.B.Height, 20, "paste all height");
+        f.A.Adjustments[1] = 0.2f;
+        f.A.TextFrame.TextRange.Font.Name = "Arial";
+        f.A.TextFrame.TextRange.Font.NameFarEast = "微软雅黑";
+        f.A.TextFrame.TextRange.Font.Size = 18;
+        f.A.TextFrame.TextRange.Font.Color.RGB = 0x112233;
+        f.A.Fill.ForeColor.RGB = 0x445566;
+        f.A.Fill.Transparency = 0.25f;
+        f.A.Line.ForeColor.RGB = 0x778899;
+        f.A.Line.Weight = 2.5f;
+        f.A.Line.DashStyle = 3;
+
+        f.B.LockAspectRatio = -1;
+        f.App.Select(f.A, f.B);
+        var originalHeight = f.B.Height;
+        ShapeOperations.ApplyStyle(StylePart.Width); Equal(f.B.Width, 30, "style width"); Equal(f.B.Height, originalHeight, "style width keeps height"); Equal(f.B.LockAspectRatio, -1, "style width restores lock");
+        var originalWidth = f.B.Width;
+        ShapeOperations.ApplyStyle(StylePart.Height); Equal(f.B.Height, 20, "style height"); Equal(f.B.Width, originalWidth, "style height keeps width");
+        ShapeOperations.ApplyStyle(StylePart.Position); Equal(f.B.Left, 10, "style position left"); Equal(f.B.Top, 10, "style position top");
+        ShapeOperations.ApplyStyle(StylePart.Corner); Equal(f.B.Adjustments[1], 0.2f, "style corner radius", 0.001f);
+        ShapeOperations.ApplyStyle(StylePart.Font); Equal(f.B.TextFrame.TextRange.Font.Name, "Arial", "style font name"); Equal(f.B.TextFrame.TextRange.Font.NameFarEast, "微软雅黑", "style font far east"); Equal(f.B.TextFrame.TextRange.Font.Size, 18, "style font size");
+        ShapeOperations.ApplyStyle(StylePart.Fill); Equal(f.B.Fill.ForeColor.RGB, 0x445566, "style fill color"); Equal(f.B.Fill.Transparency, 0.25f, "style fill transparency");
+        ShapeOperations.ApplyStyle(StylePart.Line); Equal(f.B.Line.ForeColor.RGB, 0x778899, "style line color"); Equal(f.B.Line.Weight, 2.5f, "style line weight"); Equal(f.B.Line.DashStyle, 3, "style line dash");
+
+        f.App.Select(f.A); ShapeOperations.CaptureStyle();
+        f.C.Left = 90; f.C.Top = 70; f.App.Select(f.C); ShapeOperations.ApplyStyle(StylePart.Position);
+        Equal(f.C.Left, 10, "captured position left"); Equal(f.C.Top, 10, "captured position top");
     }
 
     private static void TestSnapTextAndMargins()
@@ -210,19 +228,26 @@ public sealed class FakeRange
 
 public sealed class FakeShape
 {
+    private float _width;
+    private float _height;
     public int Id { get; }
     public float Left { get; set; }
     public float Top { get; set; }
-    public float Width { get; set; }
-    public float Height { get; set; }
+    public float Width { get => _width; set { if (LockAspectRatio != 0 && _width != 0) _height *= value / _width; _width = value; } }
+    public float Height { get => _height; set { if (LockAspectRatio != 0 && _height != 0) _width *= value / _height; _height = value; } }
     public float Rotation { get; set; }
+    public int LockAspectRatio { get; set; }
+    public int AutoShapeType { get; set; } = 5;
     public int HasTextFrame { get; set; } = -1;
     public int LastFlip { get; private set; } = -1;
     public int LastZOrder { get; private set; } = -1;
     public FakeTextFrame TextFrame { get; } = new FakeTextFrame();
     public FakeTextFrame2 TextFrame2 { get; } = new FakeTextFrame2();
+    public FakeAdjustments Adjustments { get; } = new FakeAdjustments();
+    public FakeFill Fill { get; } = new FakeFill();
+    public FakeLine Line { get; } = new FakeLine();
     public FakeShapes Owner { get; set; }
-    public FakeShape(int id, float left, float top, float width, float height) { Id = id; Left = left; Top = top; Width = width; Height = height; }
+    public FakeShape(int id, float left, float top, float width, float height) { Id = id; Left = left; Top = top; _width = width; _height = height; }
     public void Flip(int command) { LastFlip = command; }
     public void ZOrder(int command) { LastZOrder = command; }
     public FakeRange Duplicate() => new FakeRange(Owner.AddClone(this));
@@ -247,4 +272,51 @@ public sealed class FakeTextFrame
 }
 
 public sealed class FakeTextFrame2 { public int AutoSize { get; set; } public int WordWrap { get; set; } }
-public sealed class FakeTextRange { public string Text { get; set; } = ""; }
+public sealed class FakeTextRange
+{
+    public string Text { get; set; } = "";
+    public FakeFont Font { get; } = new FakeFont();
+    public FakeTextRange Characters(int start, int length) => this;
+}
+
+public sealed class FakeFont
+{
+    public string Name { get; set; } = "Calibri";
+    public string NameFarEast { get; set; } = "等线";
+    public float Size { get; set; } = 12;
+    public int Bold { get; set; }
+    public int Italic { get; set; }
+    public FakeColor Color { get; } = new FakeColor();
+}
+
+public sealed class FakeColor
+{
+    public int RGB { get; set; }
+    public int ObjectThemeColor { get; set; }
+    public float TintAndShade { get; set; }
+}
+
+public sealed class FakeAdjustments
+{
+    private readonly Dictionary<int, float> _items = new Dictionary<int, float> { [1] = 0.1f };
+    public int Count => _items.Count;
+    public float this[int index] { get => _items[index]; set => _items[index] = value; }
+}
+
+public sealed class FakeFill
+{
+    public int Visible { get; set; } = -1;
+    public int Type { get; set; } = 1;
+    public FakeColor ForeColor { get; } = new FakeColor();
+    public float Transparency { get; set; }
+    public void Solid() { Type = 1; }
+}
+
+public sealed class FakeLine
+{
+    public int Visible { get; set; } = -1;
+    public FakeColor ForeColor { get; } = new FakeColor();
+    public float Weight { get; set; } = 1;
+    public int DashStyle { get; set; } = 1;
+    public float Transparency { get; set; }
+}

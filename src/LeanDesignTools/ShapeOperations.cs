@@ -7,13 +7,11 @@ using System.Windows.Forms;
 namespace LeanDesignTools
 {
     public enum AlignMode { Left, Center, Right, Top, Middle, Bottom }
+    public enum StylePart { Width, Height, Position, Corner, Font, Fill, Line }
 
     public static class ShapeOperations
     {
-        private static Box _copied;
-        private static bool _hasCopiedPosition;
-        private static bool _hasCopiedWidth;
-        private static bool _hasCopiedHeight;
+        private static StyleSnapshot _capturedStyle;
 
         public static void Run(Action<dynamic, dynamic> action, int minimum = 1)
         {
@@ -153,27 +151,34 @@ namespace LeanDesignTools
             catch (Exception ex) { MessageBox.Show("选择失败：" + ex.Message, "设计工具"); }
         }
 
-        public static void CopyGeometry(bool position, bool width, bool height) => Run((app, range) =>
+        public static void CaptureStyle()
         {
-            var source = Read(range.Item(1), 1);
-            if (_copied == null) _copied = new Box();
-            if (position) { _copied.Left = source.Left; _copied.Top = source.Top; _hasCopiedPosition = true; }
-            if (width) { _copied.Width = source.Width; _hasCopiedWidth = true; }
-            if (height) { _copied.Height = source.Height; _hasCopiedHeight = true; }
-        });
-
-        public static void PasteGeometry(bool position, bool width, bool height) => Run((app, range) =>
-        {
-            if (position && !_hasCopiedPosition) throw new InvalidOperationException("请先复制位置。");
-            if (width && !_hasCopiedWidth) throw new InvalidOperationException("请先复制宽度或大小。");
-            if (height && !_hasCopiedHeight) throw new InvalidOperationException("请先复制高度或大小。");
-            for (var i = 1; i <= (int)range.Count; i++)
+            try
             {
-                dynamic shape = range.Item(i);
-                if (position) { shape.Left = _copied.Left; shape.Top = _copied.Top; }
-                if (width) shape.Width = _copied.Width;
-                if (height) shape.Height = _copied.Height;
+                dynamic app = DesignPane.PowerPoint;
+                if (app == null) throw new InvalidOperationException("PowerPoint 尚未连接。");
+                dynamic selection = app.ActiveWindow.Selection;
+                if (((int)selection.Type != 2 && (int)selection.Type != 3) || (int)selection.ShapeRange.Count < 1)
+                    throw new InvalidOperationException("请选择一个基准对象。");
+                _capturedStyle = ReadStyle(selection.ShapeRange.Item(1));
             }
+            catch (Exception ex)
+            {
+                var message = ex is InvalidOperationException ? ex.Message : "吸取失败：" + ex.Message;
+                MessageBox.Show(message, "设计工具", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        public static void ApplyStyle(StylePart part) => Run((app, range) =>
+        {
+            var multiple = (int)range.Count >= 2;
+            var style = multiple ? ReadStyle(range.Item(1)) : _capturedStyle;
+            if (style == null) throw new InvalidOperationException("请先吸取基准样式。");
+
+            var applied = 0;
+            for (var i = multiple ? 2 : 1; i <= (int)range.Count; i++)
+                if (TryApplyStyle(range.Item(i), style, part)) applied++;
+            if (applied == 0) throw new InvalidOperationException("所选对象不支持此格式。");
         });
 
         public static void ClearText() => Run((app, range) =>
@@ -318,6 +323,243 @@ namespace LeanDesignTools
             anchor.TextFrame.TextRange.Text = string.Join(withLineBreaks ? "\r" : "", texts);
             for (var i = 1; i < items.Count; i++) items[i].Delete();
         }, 2);
+
+        private static StyleSnapshot ReadStyle(dynamic shape)
+        {
+            var style = new StyleSnapshot
+            {
+                Left = (float)shape.Left,
+                Top = (float)shape.Top,
+                Width = (float)shape.Width,
+                Height = (float)shape.Height
+            };
+
+            try
+            {
+                if (SupportsCorner(shape) && (int)shape.Adjustments.Count > 0)
+                    style.CornerRadius = (float)shape.Adjustments[1] * Math.Min(style.Width, style.Height);
+            }
+            catch { }
+
+            try
+            {
+                if ((int)shape.HasTextFrame != 0)
+                {
+                    dynamic textRange = shape.TextFrame.TextRange;
+                    dynamic font;
+                    try { font = textRange.Characters(1, 1).Font; }
+                    catch { font = textRange.Font; }
+                    style.Font = new FontSnapshot
+                    {
+                        Name = (string)font.Name,
+                        NameFarEast = (string)font.NameFarEast,
+                        Size = (float)font.Size,
+                        Bold = (int)font.Bold,
+                        Italic = (int)font.Italic,
+                        Color = ReadColor(font.Color)
+                    };
+                }
+            }
+            catch { }
+
+            try
+            {
+                var visible = (int)shape.Fill.Visible != 0;
+                style.Fill = new FillSnapshot { Visible = visible };
+                if (visible && (int)shape.Fill.Type == 1)
+                {
+                    style.Fill.Supported = true;
+                    style.Fill.Color = ReadColor(shape.Fill.ForeColor);
+                    style.Fill.Transparency = (float)shape.Fill.Transparency;
+                }
+                else if (!visible) style.Fill.Supported = true;
+            }
+            catch { }
+
+            try
+            {
+                var visible = (int)shape.Line.Visible != 0;
+                style.Line = new LineSnapshot { Visible = visible, Supported = true };
+                if (visible)
+                {
+                    style.Line.Color = ReadColor(shape.Line.ForeColor);
+                    style.Line.Weight = (float)shape.Line.Weight;
+                    style.Line.DashStyle = (int)shape.Line.DashStyle;
+                    style.Line.Transparency = (float)shape.Line.Transparency;
+                }
+            }
+            catch { }
+
+            return style;
+        }
+
+        private static bool TryApplyStyle(dynamic shape, StyleSnapshot style, StylePart part)
+        {
+            try
+            {
+                switch (part)
+                {
+                    case StylePart.Width:
+                        SetIndependentDimension(shape, style.Width, true);
+                        return true;
+                    case StylePart.Height:
+                        SetIndependentDimension(shape, style.Height, false);
+                        return true;
+                    case StylePart.Position:
+                        shape.Left = style.Left;
+                        shape.Top = style.Top;
+                        return true;
+                    case StylePart.Corner:
+                        if (!style.CornerRadius.HasValue || !SupportsCorner(shape) || (int)shape.Adjustments.Count == 0) return false;
+                        var minimum = Math.Min((float)shape.Width, (float)shape.Height);
+                        if (minimum <= 0) return false;
+                        shape.Adjustments[1] = Math.Max(0f, Math.Min(0.5f, style.CornerRadius.Value / minimum));
+                        return true;
+                    case StylePart.Font:
+                        if (style.Font == null || (int)shape.HasTextFrame == 0) return false;
+                        ApplyFont(shape.TextFrame.TextRange.Font, style.Font);
+                        return true;
+                    case StylePart.Fill:
+                        if (style.Fill == null || !style.Fill.Supported) return false;
+                        ApplyFill(shape.Fill, style.Fill);
+                        return true;
+                    case StylePart.Line:
+                        if (style.Line == null || !style.Line.Supported) return false;
+                        ApplyLine(shape.Line, style.Line);
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            catch { return false; }
+        }
+
+        private static void SetIndependentDimension(dynamic shape, float value, bool width)
+        {
+            var locked = (int)shape.LockAspectRatio;
+            shape.LockAspectRatio = 0;
+            if (width) shape.Width = value; else shape.Height = value;
+            shape.LockAspectRatio = locked;
+        }
+
+        private static bool SupportsCorner(dynamic shape)
+        {
+            try
+            {
+                var type = (int)shape.AutoShapeType;
+                return type == 5 || (type >= 151 && type <= 154);
+            }
+            catch { return false; }
+        }
+
+        private static ColorSnapshot ReadColor(dynamic color)
+        {
+            var snapshot = new ColorSnapshot { Rgb = (int)color.RGB };
+            try
+            {
+                var theme = (int)color.ObjectThemeColor;
+                if (theme > 0)
+                {
+                    snapshot.HasTheme = true;
+                    snapshot.Theme = theme;
+                    snapshot.TintAndShade = (float)color.TintAndShade;
+                }
+            }
+            catch { }
+            return snapshot;
+        }
+
+        private static void ApplyColor(dynamic target, ColorSnapshot color)
+        {
+            if (color.HasTheme)
+            {
+                try
+                {
+                    target.ObjectThemeColor = color.Theme;
+                    target.TintAndShade = color.TintAndShade;
+                    return;
+                }
+                catch { }
+            }
+            target.RGB = color.Rgb;
+        }
+
+        private static void ApplyFont(dynamic target, FontSnapshot font)
+        {
+            target.Name = font.Name;
+            target.NameFarEast = font.NameFarEast;
+            target.Size = font.Size;
+            target.Bold = font.Bold;
+            target.Italic = font.Italic;
+            ApplyColor(target.Color, font.Color);
+        }
+
+        private static void ApplyFill(dynamic target, FillSnapshot fill)
+        {
+            target.Visible = fill.Visible ? -1 : 0;
+            if (!fill.Visible) return;
+            target.Solid();
+            ApplyColor(target.ForeColor, fill.Color);
+            target.Transparency = fill.Transparency;
+        }
+
+        private static void ApplyLine(dynamic target, LineSnapshot line)
+        {
+            target.Visible = line.Visible ? -1 : 0;
+            if (!line.Visible) return;
+            ApplyColor(target.ForeColor, line.Color);
+            target.Weight = line.Weight;
+            target.DashStyle = line.DashStyle;
+            target.Transparency = line.Transparency;
+        }
+
+        private sealed class StyleSnapshot
+        {
+            public float Left;
+            public float Top;
+            public float Width;
+            public float Height;
+            public float? CornerRadius;
+            public FontSnapshot Font;
+            public FillSnapshot Fill;
+            public LineSnapshot Line;
+        }
+
+        private sealed class FontSnapshot
+        {
+            public string Name;
+            public string NameFarEast;
+            public float Size;
+            public int Bold;
+            public int Italic;
+            public ColorSnapshot Color;
+        }
+
+        private sealed class FillSnapshot
+        {
+            public bool Supported;
+            public bool Visible;
+            public ColorSnapshot Color;
+            public float Transparency;
+        }
+
+        private sealed class LineSnapshot
+        {
+            public bool Supported;
+            public bool Visible;
+            public ColorSnapshot Color;
+            public float Weight;
+            public int DashStyle;
+            public float Transparency;
+        }
+
+        private sealed class ColorSnapshot
+        {
+            public int Rgb;
+            public bool HasTheme;
+            public int Theme;
+            public float TintAndShade;
+        }
 
         private static Box Read(dynamic shape, int id) => new Box
         {
