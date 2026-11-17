@@ -147,7 +147,7 @@ internal static class ShapeOperationSmokeTests
         using (var pane = new DesignPane())
         {
             var fill = FindButton(pane, "仅刷填充：单击刷一次，双击连续刷");
-            fill.PerformClick();
+            Invoke(pane, "ActivateStyleBrush", fill, StylePart.Fill, false);
             f.App.Select(f.B); Invoke(pane, "UpdateButtonStates");
             Equal(f.B.Fill.ForeColor.RGB, 0x123456, "one-shot fill brush");
             True(!(bool)fill.GetType().GetProperty("BrushActive").GetValue(fill), "one-shot brush exits");
@@ -162,8 +162,8 @@ internal static class ShapeOperationSmokeTests
             Invoke(pane, "CancelBrushModes");
 
             f.B.Fill.ForeColor.RGB = 1; f.App.Select(f.A);
-            FindButton(pane, "吸取全部样式").PerformClick();
-            f.App.Select(f.B); fill.PerformClick();
+            Invoke(pane, "ToggleSnapshotMode");
+            f.App.Select(f.B); Invoke(pane, "ActivateStyleBrush", fill, StylePart.Fill, false);
             Equal(f.B.Fill.ForeColor.RGB, 0x123456, "snapshot fill brush");
         }
     }
