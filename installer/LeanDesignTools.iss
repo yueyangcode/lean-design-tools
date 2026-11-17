@@ -1,6 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
+
+#define AssemblyVersion AppVersion + ".0"
 
 #define AppName "Lean Design Tools"
 #define AppPublisher "Yueyang"
@@ -8,7 +10,7 @@
 #define AddInClsid "{5B4630A0-E087-4E24-93B5-8A79B0E1B842}"
 #define PaneClsid "{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}"
 #define ComCategory "{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}"
-#define AssemblyName "LeanDesignTools, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null"
+#define AssemblyName "LeanDesignTools, Version=" + AssemblyVersion + ", Culture=neutral, PublicKeyToken=null"
 
 [Setup]
 AppId={{5B4630A0-E087-4E24-93B5-8A79B0E1B842}
@@ -51,10 +53,10 @@ Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B8
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "Class"; ValueData: "LeanDesignTools.AddIn"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "Class"; ValueData: "LeanDesignTools.AddIn"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\ProgId"; ValueType: string; ValueData: "LeanDesignTools.AddIn"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{5B4630A0-E087-4E24-93B5-8A79B0E1B842}\Implemented Categories\{{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}"
 
@@ -67,10 +69,10 @@ Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "Class"; ValueData: "LeanDesignTools.DesignPane"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
-Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\0.1.0.0"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "Class"; ValueData: "LeanDesignTools.DesignPane"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "Assembly"; ValueData: "{#AssemblyName}"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "RuntimeVersion"; ValueData: "v4.0.30319"
+Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\InprocServer32\{#AssemblyVersion}"; ValueType: string; ValueName: "CodeBase"; ValueData: "file:///{code:GetCodeBase}"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\ProgId"; ValueType: string; ValueData: "LeanDesignTools.Pane"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\Implemented Categories\{{62C8FE65-4EBB-45E7-B440-6E39B2CDBF29}"
 Root: HKCU; Subkey: "Software\Classes\CLSID\{{AA7C4797-FD89-49BC-8E1A-A0C63A3788F0}\Control"
