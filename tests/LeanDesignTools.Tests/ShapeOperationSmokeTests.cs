@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Windows.Forms;
 using LeanDesignTools;
 
 internal static class ShapeOperationSmokeTests
@@ -11,6 +12,7 @@ internal static class ShapeOperationSmokeTests
         TestAlignmentAndDistribution();
         TestSizeDockRotateAndOrdering();
         TestSelectionVectorAndStyleBrush();
+        TestStyleBrushInteraction();
         TestSnapTextAndMargins();
         TestSplitAndCombine();
         Console.WriteLine("Shape operation smoke tests passed.");
@@ -108,8 +110,8 @@ internal static class ShapeOperationSmokeTests
         ShapeOperations.ApplyStyle(StylePart.Fill); Equal(f.B.Fill.ForeColor.RGB, 0x445566, "style fill color"); Equal(f.B.Fill.Transparency, 0.25f, "style fill transparency");
         ShapeOperations.ApplyStyle(StylePart.Line); Equal(f.B.Line.ForeColor.RGB, 0x778899, "style line color"); Equal(f.B.Line.Weight, 2.5f, "style line weight"); Equal(f.B.Line.DashStyle, 3, "style line dash");
 
-        f.App.Select(f.A); ShapeOperations.CaptureStyle();
-        f.C.Left = 90; f.C.Top = 70; f.App.Select(f.C); ShapeOperations.ApplyStyle(StylePart.Position);
+        f.App.Select(f.A); Equal(ShapeOperations.SelectionCount(), 1, "style selection count"); Equal(ShapeOperations.SingleSelectionKey(), "1:1", "style selection key"); True(ShapeOperations.CaptureStyle(), "capture style");
+        f.C.Left = 90; f.C.Top = 70; f.App.Select(f.C); True(ShapeOperations.ApplyCapturedStyle(StylePart.Position), "apply captured style");
         Equal(f.C.Left, 10, "captured position left"); Equal(f.C.Top, 10, "captured position top");
     }
 
@@ -135,6 +137,35 @@ internal static class ShapeOperationSmokeTests
         Equal(f.A.TextFrame.MarginRight, 14.1732f, "margin right", 0.001f);
         Equal(f.A.TextFrame.MarginTop, 3.6850f, "margin top", 0.001f);
         Equal(f.A.TextFrame.MarginBottom, 5.6693f, "margin bottom", 0.001f);
+    }
+
+    private static void TestStyleBrushInteraction()
+    {
+        var f = NewFixture();
+        f.A.Fill.ForeColor.RGB = 0x123456; f.B.Fill.ForeColor.RGB = 1; f.C.Fill.ForeColor.RGB = 2;
+        f.App.Select(f.A);
+        using (var pane = new DesignPane())
+        {
+            var fill = FindButton(pane, "仅刷填充：单击刷一次，双击连续刷");
+            fill.PerformClick();
+            f.App.Select(f.B); Invoke(pane, "UpdateButtonStates");
+            Equal(f.B.Fill.ForeColor.RGB, 0x123456, "one-shot fill brush");
+            True(!(bool)fill.GetType().GetProperty("BrushActive").GetValue(fill), "one-shot brush exits");
+
+            f.B.Fill.ForeColor.RGB = 1; f.C.Fill.ForeColor.RGB = 2; f.App.Select(f.A);
+            Invoke(pane, "ActivateStyleBrush", fill, StylePart.Fill, true);
+            f.App.Select(f.B); Invoke(pane, "UpdateButtonStates");
+            f.App.Select(f.C); Invoke(pane, "UpdateButtonStates");
+            Equal(f.B.Fill.ForeColor.RGB, 0x123456, "continuous fill first target");
+            Equal(f.C.Fill.ForeColor.RGB, 0x123456, "continuous fill second target");
+            True((bool)fill.GetType().GetProperty("BrushActive").GetValue(fill), "continuous brush stays active");
+            Invoke(pane, "CancelBrushModes");
+
+            f.B.Fill.ForeColor.RGB = 1; f.App.Select(f.A);
+            FindButton(pane, "吸取全部样式").PerformClick();
+            f.App.Select(f.B); fill.PerformClick();
+            Equal(f.B.Fill.ForeColor.RGB, 0x123456, "snapshot fill brush");
+        }
     }
 
     private static void TestSplitAndCombine()
@@ -166,6 +197,20 @@ internal static class ShapeOperationSmokeTests
     private static void Equal(string actual, string expected, string name) { if (actual != expected) throw new Exception($"{name}: expected '{expected}', got '{actual}'"); }
     private static void True(bool value, string name) { if (!value) throw new Exception(name + " failed"); }
 
+    private static Button FindButton(Control root, string accessibleName)
+    {
+        foreach (Control child in root.Controls)
+        {
+            if (child is Button button && button.AccessibleName == accessibleName) return button;
+            var nested = FindButton(child, accessibleName);
+            if (nested != null) return nested;
+        }
+        return null;
+    }
+
+    private static object Invoke(object target, string name, params object[] args) =>
+        target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, args);
+
     private sealed class Fixture
     {
         public readonly FakeApp App; public readonly FakeShape A; public readonly FakeShape B; public readonly FakeShape C;
@@ -196,7 +241,7 @@ public sealed class FakeView { public FakeSlide Slide { get; } = new FakeSlide()
 public sealed class FakePresentation { public FakePageSetup PageSetup { get; } = new FakePageSetup(); }
 public sealed class FakePageSetup { public float SlideWidth { get; set; } = 100; public float SlideHeight { get; set; } = 80; }
 public sealed class FakeCommandBars { public List<string> Executed { get; } = new List<string>(); public void ExecuteMso(string id) { Executed.Add(id); } }
-public sealed class FakeSlide { public FakeShapes Shapes { get; } = new FakeShapes(); }
+public sealed class FakeSlide { public int SlideID { get; set; } = 1; public FakeShapes Shapes { get; } = new FakeShapes(); }
 
 public sealed class FakeShapes
 {

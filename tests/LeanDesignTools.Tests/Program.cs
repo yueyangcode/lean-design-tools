@@ -4,6 +4,7 @@ using LeanDesignTools;
 
 internal static class Program
 {
+    [STAThread]
     private static int Main()
     {
         try

@@ -20,8 +20,16 @@ namespace LeanDesignTools
     internal sealed class ToolButton : Button
     {
         private bool _available = true;
+        private bool _brushActive;
+        private bool _skipClick;
         public IconKind Icon { get; set; }
         public int MinimumSelection { get; set; }
+        public event System.EventHandler DoubleActivated;
+        public bool BrushActive
+        {
+            get => _brushActive;
+            set { if (_brushActive == value) return; _brushActive = value; Invalidate(); }
+        }
         public bool Available
         {
             get => _available;
@@ -46,6 +54,11 @@ namespace LeanDesignTools
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var color = Available ? Color.FromArgb(244, 78, 72) : Color.FromArgb(165, 165, 165);
+            if (BrushActive)
+            {
+                using (var active = new SolidBrush(Color.FromArgb(255, 240, 239))) e.Graphics.FillRectangle(active, ClientRectangle);
+                using (var border = new Pen(color)) e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            }
             using (var pen = new Pen(color, 1f))
             using (var brush = new SolidBrush(color))
             {
@@ -54,6 +67,22 @@ namespace LeanDesignTools
                 pen.LineJoin = LineJoin.Round;
                 DrawIcon(e.Graphics, pen, brush, new Rectangle((Width - 17) / 2, (Height - 15) / 2, 17, 15));
             }
+        }
+
+        protected override void OnMouseDown(MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left && e.Clicks > 1)
+            {
+                _skipClick = true;
+                DoubleActivated?.Invoke(this, System.EventArgs.Empty);
+            }
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnClick(System.EventArgs e)
+        {
+            if (_skipClick) { _skipClick = false; return; }
+            base.OnClick(e);
         }
 
         private void DrawIcon(Graphics g, Pen p, Brush b, Rectangle r)

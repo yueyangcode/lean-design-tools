@@ -33,8 +33,20 @@ namespace LeanDesignTools
         private AccentRadioButton _fitShapeMode;
         private AccentRadioButton _shrinkMode;
         private AccentCheckBox _wordWrap;
+        private ToolButton _snapshotButton;
+        private ToolButton _styleBrushButton;
+        private StylePart? _styleBrushPart;
+        private bool _styleBrushContinuous;
+        private bool _snapshotMode;
+        private string _styleBrushSourceKey;
+        private string _styleBrushLastTargetKey;
+        private string _snapshotSourceKey;
+        private bool _escapeWasDown;
         private int _selectedPage;
         private int _navWheelDelta;
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int virtualKey);
 
         public DesignPane()
         {
@@ -148,14 +160,14 @@ namespace LeanDesignTools
 
             AddObjectSizeSection();
             AddSection("格式刷", 4,
-                Tool("吸取基准样式", IconKind.StyleCapture, ShapeOperations.CaptureStyle),
-                Tool("同宽：多选以首选为基准，单选使用已吸取基准", IconKind.StyleWidth, () => ShapeOperations.ApplyStyle(StylePart.Width)),
-                Tool("同高：多选以首选为基准，单选使用已吸取基准", IconKind.StyleHeight, () => ShapeOperations.ApplyStyle(StylePart.Height)),
-                Tool("同位置：多选以首选为基准，单选使用已吸取基准", IconKind.StylePosition, () => ShapeOperations.ApplyStyle(StylePart.Position)),
-                Tool("仅刷圆角", IconKind.StyleCorner, () => ShapeOperations.ApplyStyle(StylePart.Corner)),
-                Tool("仅刷字体", IconKind.StyleFont, () => ShapeOperations.ApplyStyle(StylePart.Font)),
-                Tool("仅刷填充", IconKind.StyleFill, () => ShapeOperations.ApplyStyle(StylePart.Fill)),
-                Tool("仅刷边框", IconKind.StyleLine, () => ShapeOperations.ApplyStyle(StylePart.Line)));
+                _snapshotButton = Tool("吸取全部样式", IconKind.StyleCapture, ToggleSnapshotMode),
+                StyleTool("同宽：单击刷一次，双击连续刷", IconKind.StyleWidth, StylePart.Width),
+                StyleTool("同高：单击刷一次，双击连续刷", IconKind.StyleHeight, StylePart.Height),
+                StyleTool("同位置：单击刷一次，双击连续刷", IconKind.StylePosition, StylePart.Position),
+                StyleTool("仅刷圆角：单击刷一次，双击连续刷", IconKind.StyleCorner, StylePart.Corner),
+                StyleTool("仅刷字体：单击刷一次，双击连续刷", IconKind.StyleFont, StylePart.Font),
+                StyleTool("仅刷填充：单击刷一次，双击连续刷", IconKind.StyleFill, StylePart.Fill),
+                StyleTool("仅刷边框：单击刷一次，双击连续刷", IconKind.StyleLine, StylePart.Line));
             AddTextBoxSection();
             AddMarginSection();
         }
@@ -224,6 +236,86 @@ namespace LeanDesignTools
             _tools.Add(button);
             _shapeControls.Add(button);
             return button;
+        }
+
+        private ToolButton StyleTool(string tip, IconKind icon, StylePart part)
+        {
+            ToolButton button = null;
+            button = Tool(tip, icon, () => ActivateStyleBrush(button, part, false));
+            button.DoubleActivated += (s, e) => ActivateStyleBrush(button, part, true);
+            return button;
+        }
+
+        private void ToggleSnapshotMode()
+        {
+            var key = ShapeOperations.SingleSelectionKey();
+            if (_snapshotMode && key == _snapshotSourceKey) { CancelBrushModes(); return; }
+            if (!ShapeOperations.CaptureStyle()) return;
+            CancelBrushModes();
+            _snapshotMode = true;
+            _snapshotSourceKey = key;
+            _snapshotButton.BrushActive = true;
+        }
+
+        private void ActivateStyleBrush(ToolButton button, StylePart part, bool continuous)
+        {
+            if (ShapeOperations.SelectionCount() >= 2)
+            {
+                CancelBrushModes();
+                ShapeOperations.ApplyStyle(part);
+                return;
+            }
+
+            var key = ShapeOperations.SingleSelectionKey();
+            if (key == null) { ShapeOperations.ApplyStyle(part); return; }
+            if (_snapshotMode && key != _snapshotSourceKey)
+            {
+                ShapeOperations.ApplyCapturedStyle(part);
+                return;
+            }
+            if (_styleBrushButton == button)
+            {
+                if (continuous) { _styleBrushContinuous = true; return; }
+                CancelStyleBrush();
+                return;
+            }
+            if (!ShapeOperations.CaptureStyle()) return;
+
+            CancelBrushModes();
+            _styleBrushButton = button;
+            _styleBrushPart = part;
+            _styleBrushContinuous = continuous;
+            _styleBrushSourceKey = key;
+            _styleBrushLastTargetKey = null;
+            button.BrushActive = true;
+        }
+
+        private void ApplyArmedStyleBrush()
+        {
+            if (!_styleBrushPart.HasValue) return;
+            var key = ShapeOperations.SingleSelectionKey();
+            if (key == null || key == _styleBrushSourceKey || key == _styleBrushLastTargetKey) return;
+            if (!ShapeOperations.ApplyCapturedStyle(_styleBrushPart.Value)) return;
+            _styleBrushLastTargetKey = key;
+            if (!_styleBrushContinuous) CancelStyleBrush();
+        }
+
+        private void CancelStyleBrush()
+        {
+            if (_styleBrushButton != null) _styleBrushButton.BrushActive = false;
+            _styleBrushButton = null;
+            _styleBrushPart = null;
+            _styleBrushContinuous = false;
+            _styleBrushSourceKey = null;
+            _styleBrushLastTargetKey = null;
+        }
+
+        private void CancelBrushModes()
+        {
+            CancelStyleBrush();
+            _snapshotMode = false;
+            _snapshotSourceKey = null;
+            if (_snapshotButton != null) _snapshotButton.BrushActive = false;
         }
 
         private void AddSection(string title, params ToolButton[] buttons)
@@ -417,6 +509,9 @@ namespace LeanDesignTools
 
         private void UpdateButtonStates()
         {
+            var escapeDown = (GetAsyncKeyState(0x1B) & 0x8000) != 0;
+            if (escapeDown && !_escapeWasDown && (_styleBrushPart.HasValue || _snapshotMode)) CancelBrushModes();
+            _escapeWasDown = escapeDown;
             var count = 0;
             dynamic firstShape = null;
             try
@@ -451,6 +546,17 @@ namespace LeanDesignTools
                 SetDimensionDisplay(_objectHeight, (decimal)(float)firstShape.Height * centimetersPerPoint);
             }
             if (hasTextFrame) SyncTextBoxState(firstShape);
+            ApplyArmedStyleBrush();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Escape && (_styleBrushPart.HasValue || _snapshotMode))
+            {
+                CancelBrushModes();
+                return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private void SyncTextBoxState(dynamic shape)

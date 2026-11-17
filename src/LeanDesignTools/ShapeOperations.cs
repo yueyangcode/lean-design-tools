@@ -151,7 +151,7 @@ namespace LeanDesignTools
             catch (Exception ex) { MessageBox.Show("选择失败：" + ex.Message, "设计工具"); }
         }
 
-        public static void CaptureStyle()
+        public static bool CaptureStyle()
         {
             try
             {
@@ -161,12 +161,39 @@ namespace LeanDesignTools
                 if (((int)selection.Type != 2 && (int)selection.Type != 3) || (int)selection.ShapeRange.Count < 1)
                     throw new InvalidOperationException("请选择一个基准对象。");
                 _capturedStyle = ReadStyle(selection.ShapeRange.Item(1));
+                return true;
             }
             catch (Exception ex)
             {
                 var message = ex is InvalidOperationException ? ex.Message : "吸取失败：" + ex.Message;
                 MessageBox.Show(message, "设计工具", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
             }
+        }
+
+        public static int SelectionCount()
+        {
+            try
+            {
+                dynamic selection = DesignPane.PowerPoint?.ActiveWindow?.Selection;
+                return selection != null && ((int)selection.Type == 2 || (int)selection.Type == 3)
+                    ? (int)selection.ShapeRange.Count : 0;
+            }
+            catch { return 0; }
+        }
+
+        public static string SingleSelectionKey()
+        {
+            try
+            {
+                dynamic app = DesignPane.PowerPoint;
+                dynamic selection = app?.ActiveWindow?.Selection;
+                if (selection == null || ((int)selection.Type != 2 && (int)selection.Type != 3) || (int)selection.ShapeRange.Count != 1) return null;
+                dynamic shape = selection.ShapeRange.Item(1);
+                return ((int)app.ActiveWindow.View.Slide.SlideID).ToString(CultureInfo.InvariantCulture) + ":" +
+                    ((int)shape.Id).ToString(CultureInfo.InvariantCulture);
+            }
+            catch { return null; }
         }
 
         public static void ApplyStyle(StylePart part) => Run((app, range) =>
@@ -180,6 +207,19 @@ namespace LeanDesignTools
                 if (TryApplyStyle(range.Item(i), style, part)) applied++;
             if (applied == 0) throw new InvalidOperationException("所选对象不支持此格式。");
         });
+
+        public static bool ApplyCapturedStyle(StylePart part)
+        {
+            var applied = false;
+            Run((app, range) =>
+            {
+                if ((int)range.Count != 1) throw new InvalidOperationException("请选择一个目标对象。");
+                if (_capturedStyle == null) throw new InvalidOperationException("请先吸取基准样式。");
+                applied = TryApplyStyle(range.Item(1), _capturedStyle, part);
+                if (!applied) throw new InvalidOperationException("所选对象不支持此格式。");
+            });
+            return applied;
+        }
 
         public static void ClearText() => Run((app, range) =>
         {
