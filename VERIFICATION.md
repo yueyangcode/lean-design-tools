@@ -2,6 +2,14 @@
 
 验证环境：Windows、64 位 PowerPoint LTSC 2024、.NET Framework 4.8，2026-11-17。
 
+## v0.1.2 生命周期修复（2026-11-23）
+
+- 从现场异常对话框读取堆栈：`Timer.OnTick → DesignPane.UpdateButtonStates → CentimeterBox.Available → TextBoxBase.ReadOnly → ObjectDisposedException`。
+- 修复侧栏销毁时停止并释放状态刷新、延迟滚动定时器和 ToolTip；销毁后回调不再访问输入框。
+- 回归测试覆盖两个定时器停止、子控件释放、销毁后刷新/编辑回调和重复 Dispose；完整构建与命令级测试通过。
+- `0.1.2` EXE 安装退出码为 0，合并 COM 注册表版本为 `0.1.2.0`；真实 PowerPoint 连续创建并关闭 3 个临时演示文稿，每次等待超过 300 ms 刷新间隔，没有再次弹出异常。原有 17 页文稿保持已保存，内容未修改。
+- 该测试覆盖已定位的销毁后刷新路径，不代表完成长时间使用验证。
+
 ## 自动化命令级验证
 
 运行 `build.ps1` 会编译加载项并执行无 PowerPoint 依赖的命令级测试。以下操作均已覆盖并通过：

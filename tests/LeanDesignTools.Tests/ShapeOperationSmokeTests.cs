@@ -13,6 +13,7 @@ internal static class ShapeOperationSmokeTests
         TestSizeDockRotateAndOrdering();
         TestSelectionVectorAndStyleBrush();
         TestStyleBrushInteraction();
+        TestPaneDisposal();
         TestSnapTextAndMargins();
         TestSplitAndCombine();
         Console.WriteLine("Shape operation smoke tests passed.");
@@ -166,6 +167,29 @@ internal static class ShapeOperationSmokeTests
             f.App.Select(f.B); Invoke(pane, "ActivateStyleBrush", fill, StylePart.Fill, false);
             Equal(f.B.Fill.ForeColor.RGB, 0x123456, "snapshot fill brush");
         }
+    }
+
+    private static void TestPaneDisposal()
+    {
+        var f = NewFixture();
+        f.App.Select(f.A);
+        var pane = new DesignPane();
+        var fields = BindingFlags.Instance | BindingFlags.NonPublic;
+        var refresh = (Timer)typeof(DesignPane).GetField("_stateTimer", fields).GetValue(pane);
+        var reset = (Timer)typeof(DesignPane).GetField("_resetScrollTimer", fields).GetValue(pane);
+        var box = (Control)typeof(DesignPane).GetField("_objectWidth", fields).GetValue(pane);
+        True(refresh.Enabled, "live pane refresh enabled");
+        reset.Start();
+        pane.Dispose();
+        True(!refresh.Enabled && !reset.Enabled, "disposed pane stops both timers");
+        True(box.IsDisposed, "pane releases child editor");
+        f.App.Select();
+        Invoke(pane, "UpdateButtonStates");
+        box.GetType().GetProperty("Available").SetValue(box, false);
+        box.GetType().GetProperty("Value").SetValue(box, 2m);
+        Invoke(box, "CommitEditor");
+        Application.DoEvents();
+        pane.Dispose();
     }
 
     private static void TestSplitAndCombine()

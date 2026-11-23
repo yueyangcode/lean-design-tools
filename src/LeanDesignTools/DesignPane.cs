@@ -23,6 +23,7 @@ namespace LeanDesignTools
         private readonly List<ToolButton> _tools = new List<ToolButton>();
         private readonly List<Control> _shapeControls = new List<Control>();
         private readonly Timer _stateTimer;
+        private readonly Timer _resetScrollTimer;
         private CentimeterBox _marginLeft;
         private CentimeterBox _marginRight;
         private CentimeterBox _marginTop;
@@ -69,22 +70,31 @@ namespace LeanDesignTools
             Controls.Add(_nav);
             BuildUi();
             SelectPage(0);
-            Load += (s, e) =>
+            _resetScrollTimer = new Timer { Interval = 50 };
+            _resetScrollTimer.Tick += (s, e) =>
             {
-                var resetScroll = new Timer { Interval = 50 };
-                resetScroll.Tick += (sender, args) =>
-                {
-                    resetScroll.Stop();
-                    Select();
-                    foreach (var content in _contents) content.AutoScrollPosition = Point.Empty;
-                    resetScroll.Dispose();
-                };
-                resetScroll.Start();
+                _resetScrollTimer.Stop();
+                if (IsDisposed || Disposing) return;
+                Select();
+                foreach (var content in _contents) content.AutoScrollPosition = Point.Empty;
             };
+            Load += (s, e) => _resetScrollTimer.Start();
             _stateTimer = new Timer { Interval = 300 };
             _stateTimer.Tick += (s, e) => UpdateButtonStates();
             UpdateButtonStates();
             _stateTimer.Start();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // Stop callbacks before base.Dispose releases the child text editors.
+                _stateTimer?.Dispose();
+                _resetScrollTimer?.Dispose();
+                _tips.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         internal static void ShowError(string title, Exception ex) =>
@@ -509,6 +519,7 @@ namespace LeanDesignTools
 
         private void UpdateButtonStates()
         {
+            if (IsDisposed || Disposing) return;
             var escapeDown = (GetAsyncKeyState(0x1B) & 0x8000) != 0;
             if (escapeDown && !_escapeWasDown && (_styleBrushPart.HasValue || _snapshotMode)) CancelBrushModes();
             _escapeWasDown = escapeDown;
@@ -711,7 +722,7 @@ namespace LeanDesignTools
             get => _available;
             set
             {
-                if (_available == value) return;
+                if (IsDisposed || Disposing || _editor.IsDisposed || _editor.Disposing || _available == value) return;
                 _available = value;
                 TabStop = value;
                 ForeColor = value ? Color.FromArgb(100, 100, 100) : Color.FromArgb(190, 190, 190);
@@ -760,13 +771,13 @@ namespace LeanDesignTools
 
         private void UpdateEditorBounds()
         {
-            if (_editor == null) return;
+            if (_editor == null || _editor.IsDisposed || IsDisposed || Disposing) return;
             _editor.SetBounds(4, 3, Math.Max(10, Width - 21), 17);
         }
 
         private void CommitEditor()
         {
-            if (!Available) return;
+            if (IsDisposed || Disposing || _editor.IsDisposed || !Available) return;
             decimal parsed;
             var text = _editor.Text.Replace("cm", string.Empty).Trim();
             if (decimal.TryParse(text, out parsed)) Value = parsed;
@@ -776,7 +787,8 @@ namespace LeanDesignTools
 
         private void UpdateText()
         {
-            if (_editor != null) _editor.Text = Value.ToString("F" + DecimalPlaces) + " cm";
+            if (_editor != null && !_editor.IsDisposed && !IsDisposed && !Disposing)
+                _editor.Text = Value.ToString("F" + DecimalPlaces) + " cm";
         }
     }
 
